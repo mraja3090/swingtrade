@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwingTradeAI Rules — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; }
+  .title { text-align: center; color: #60a5fa; font-size: 22px; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px; }
+  .subtitle { text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; max-width: 860px; margin: 0 auto; }
+  .section-label { color: #64748b; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; align-self: flex-start; margin-bottom: 6px; margin-top: 4px; }
+  .row { display: flex; gap: 10px; width: 100%; margin-bottom: 0; }
+  .box { border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; border: 1px solid; flex: 1; }
+  .box .sub { font-size: 11px; font-weight: 400; margin-top: 3px; opacity: 0.75; }
+  .teal  { background: #0f3d38; border-color: #2dd4bf; color: #2dd4bf; }
+  .blue  { background: #0f2d4a; border-color: #60a5fa; color: #93c5fd; }
+  .green { background: #0f3020; border-color: #4ade80; color: #86efac; }
+  .amber { background: #3a2a00; border-color: #fbbf24; color: #fde68a; }
+  .red   { background: #3a0f10; border-color: #f87171; color: #fca5a5; }
+  .purple{ background: #2d1b4e; border-color: #a78bfa; color: #c4b5fd; }
+  .coral { background: #3a1a10; border-color: #fb923c; color: #fdba74; }
+  .gray  { background: #1e2a3a; border-color: #475569; color: #94a3b8; }
+  .white { background: #1e293b; border-color: #475569; color: #e2e8f0; }
+  .arrow { display: flex; justify-content: center; height: 28px; align-items: center; }
+  .arrow::after { content: '↓'; color: #475569; font-size: 20px; }
+  .rules-container { width: 100%; background: #111827; border: 1px dashed #334155; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .rule-row { display: flex; gap: 10px; align-items: stretch; }
+  .rule-label { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; width: 220px; flex-shrink: 0; }
+  .rule-label .name { color: #e2e8f0; font-size: 13px; font-weight: 700; }
+  .rule-label .detail { color: #64748b; font-size: 11px; margin-top: 3px; }
+  .rule-desc { flex: 1; border-radius: 6px; padding: 8px 12px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+  .rule-score { margin-left: auto; white-space: nowrap; font-size: 11px; opacity: 0.7; }
+  .score-bar { background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 6px 14px; text-align: center; color: #60a5fa; font-size: 13px; font-weight: 700; }
+  .outcomes { display: flex; gap: 10px; width: 100%; }
+  .you-box { width: 100%; background: #1e293b; border: 1.5px solid #3b82f6; border-radius: 10px; padding: 14px 18px; }
+  .you-box .you-title { color: #60a5fa; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .you-box .step { color: #94a3b8; font-size: 12px; margin: 3px 0; }
+  .you-box .step span { color: #e2e8f0; font-weight: 600; }
+  .footer-note { text-align: center; color: #475569; font-size: 11px; margin-top: 14px; }
+  .badge { display: inline-block; background: #1e3a5f; color: #60a5fa; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+  .badge-r { display: inline-block; background: #3a0f10; color: #f87171; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="title">SwingTradeAI — Rules Edition</div>
+<div class="subtitle">Zerodha Varsity Grand Checklist  ·  7 Rules  ·  NSE Midcap 150  ·  Target Win Rate 65–70%</div>
+
+<div class="flow">
+
+  <!-- DATA -->
+  <div class="section-label">📥 Data Layer — data_loader.py</div>
+  <div class="row">
+    <div class="box teal">50 Mid-Cap Stocks<div class="sub">Nifty Midcap 150 · .NS tickers · Yahoo Finance free</div></div>
+    <div class="box teal">Nifty 50 Index<div class="sub">^NSEI · for market health Rule 1</div></div>
+    <div class="box gray">2 Years OHLCV<div class="sub">Daily candles · refreshed at 4:15 PM</div></div>
+  </div>
+  <div class="arrow"></div>
+
+  <!-- INDICATORS -->
+  <div class="section-label">📐 Technical Indicators — indicators.py  (27 values per stock)</div>
+  <div class="row">
+    <div class="box blue">Trend<div class="sub">EMA 20 · EMA 50 · EMA 200 · ADX(14)</div></div>
+    <div class="box blue">Momentum<div class="sub">RSI(14) · MACD(12,26,9) · Stochastic(14)</div></div>
+    <div class="box blue">Volatility + Volume<div class="sub">ATR(14) · Volume ratio · Support/Resistance</div></div>
+  </div>
+  <div class="arrow"></div>
+
+  <!-- PATTERNS -->
+  <div class="section-label">🕯️ Candlestick Patterns — patterns.py  (Varsity Rule 4 · Primary Signal)</div>
+  <div class="row">
+    <div class="box coral">★★★ Score 3<div class="sub">Morning Star · Bullish Engulfing</div></div>
+    <div class="box coral">★★ Score 2<div class="sub">Bullish Marubozu · Hammer · Dragonfly Doji</div></div>
+    <div class="box coral">★ Score 1<div class="sub">Piercing Line · Bullish Harami</div></div>
+  </div>
+  <div class="arrow"></div>
+
+  <!-- 7 RULES -->
+  <div class="section-label">✅ 7-Rule Grand Checklist — scanner.py</div>
+  <div class="rules-container">
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 1 — Market Health</div><div class="detail">Dow Theory · Primary trend</div></div>
+      <div class="rule-desc red">Nifty above 200 EMA · 5-day return &gt; −3% <span class="rule-score"><span class="badge-r">HARD REJECT if fail</span></span></div>
+    </div>
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 2 — Stock Trend</div><div class="detail">EMA crossover + ADX</div></div>
+      <div class="rule-desc amber">Price &gt; EMA50 · EMA20 &gt; EMA50 · ADX &gt; 20 · Not fallen &gt;20% in 30d <span class="rule-score">Score 0–2</span></div>
+    </div>
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 3 — Entry Zone</div><div class="detail">Buy on dip · not at tops</div></div>
+      <div class="rule-desc amber">Within 4% of EMA20 · RSI 40–65 · Not within 8% of 52w high <span class="rule-score">Score 0–2 · <b>Fixes HINDALCO</b></span></div>
+    </div>
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 4 — Pattern</div><div class="detail">Primary signal per Varsity</div></div>
+      <div class="rule-desc purple">Morning Star / Engulfing / Marubozu / Hammer / Doji / Piercing / Harami <span class="rule-score">Score 0–3</span></div>
+    </div>
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 5 — Volume</div><div class="detail">Smart money participation</div></div>
+      <div class="rule-desc green">Today's volume ≥ 1.5× 10-day average  <span class="rule-score">Score 0–2</span></div>
+    </div>
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 6 — Indicators</div><div class="detail">Confirmation per Varsity</div></div>
+      <div class="rule-desc blue">MACD histogram turning up · RSI &lt; 65 · Stochastic &lt; 80 <span class="rule-score">Score 0–2</span></div>
+    </div>
+
+    <div class="rule-row">
+      <div class="rule-label"><div class="name">Rule 7 — R:R Ratio</div><div class="detail">Min RRR per Varsity</div></div>
+      <div class="rule-desc teal">SL = Entry − 1×ATR · Target = Entry + 2.5×ATR · R:R ≥ 2:1 <span class="rule-score"><span class="badge-r">HARD REJECT if R:R &lt; 2</span></span></div>
+    </div>
+
+    <div class="score-bar">Total Score ≥ 7 / 12 → Signal Qualifies &nbsp;|&nbsp; Sort by score &nbsp;|&nbsp; Top 3 sent to Telegram</div>
+  </div>
+  <div class="arrow"></div>
+
+  <!-- TELEGRAM -->
+  <div class="section-label">📱 Telegram Alert — telegram_bot.py</div>
+  <div class="row">
+    <div class="box green">Signal Details<div class="sub">Stock · Pattern · Entry ₹ · Target ₹(+%) · SL ₹(-%) · R:R · Hold days · Score bar · Qty · Est P&L</div></div>
+    <div class="box blue">Grand Checklist Shown<div class="sub">✅ R2 Trend · ✅ R3 Entry · ✅ R4 Hammer · ✅ R5 Vol 2.1× · ✅ R6 MACD · ✅ R7 R:R 2.5</div></div>
+  </div>
+  <div class="arrow"></div>
+
+  <!-- YOU -->
+  <div class="you-box">
+    <div class="you-title">👁️ You — Chart Verification (CRITICAL step before placing order)</div>
+    <div class="step">1. Open TradingView or Zerodha chart for the stock</div>
+    <div class="step">2. Confirm visually: <span>uptrend? pulled back? candlestick visible on chart?</span></div>
+    <div class="step">3. If chart looks right → <span>BUY in Zerodha + set Stop Loss immediately</span></div>
+    <div class="step">4. If chart looks wrong → <span>SKIP. Your eyes are the final filter. No rule forces you to trade.</span></div>
+  </div>
+  <div class="arrow"></div>
+
+  <!-- OUTCOMES -->
+  <div class="section-label">📊 Trade Outcomes  (5–7 trading days)</div>
+  <div class="outcomes">
+    <div class="box green" style="text-align:center">Target Hit ✅<div class="sub">+2.5% profit · Slot freed</div></div>
+    <div class="box red" style="text-align:center">Stop Loss Hit ❌<div class="sub">−1% loss · Accept · Move on</div></div>
+    <div class="box amber" style="text-align:center">7-Day Time Stop ⏳<div class="sub">Exit at market · Slot freed</div></div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  Target win rate: 65–70% &nbsp;|&nbsp; R:R 2.5:1 &nbsp;|&nbsp; Breakeven win rate: 28.6% &nbsp;|&nbsp; 3 slots × ₹20,000 &nbsp;|&nbsp; ₹40,000 buffer always idle
+</div>
+</body>
+</html>
