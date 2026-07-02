@@ -221,3 +221,14 @@ def print_console_summary(signals: list, market_reason: str = ""):
         indent=2, default=str
     )
     print(f"  [LOG] → logs/signals_{date}.json")
+
+
+# Compatibility wrapper expected by main.py
+def send_signals(signals: list, market_reason: str = ""):
+    """Backwards-compatible function used by main.py.
+
+    The older main.py expects a send_signals function; print_console_summary
+    already performs the full behaviour (printing, sending Telegram messages,
+    and saving logs). This wrapper simply forwards to it.
+    """
+    print_console_summary(signals, market_reason)
