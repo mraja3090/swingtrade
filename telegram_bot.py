@@ -131,11 +131,76 @@ def send(text: str):
             print("  → Fix: Check TELEGRAM_BOT_TOKEN in config.py")
 
 
-def send_signals(signals: list, market_reason: str = ""):
+def print_console_summary(signals: list, market_reason: str = ""):
+    """Print a clean summary to the terminal — same info as Telegram."""
+    width = 70
+    now   = datetime.now().strftime('%d %b %Y  %I:%M %p')
+    sep   = "═" * width
+    line  = "─" * width
+
+    print()
+    print(sep)
+    print("  SWINGTRADEAI — TODAY'S SIGNALS  |  " + now)
+    print(sep)
+
     if not signals:
-        reason = market_reason or "No stocks passed all 7 Grand Checklist rules today."
-        send(format_no_signal(reason))
+        reason = market_reason or "No stocks passed all 7 rules today."
+        print("  NO SIGNALS — " + reason)
+        print(sep)
         return
+
+    for i, sig in enumerate(signals):
+        sym      = sig['symbol']
+        entry    = sig['entry']
+        target   = sig['target']
+        sl       = sig['stop_loss']
+        rr       = sig['rr_ratio']
+        score    = sig['score']
+        pat      = sig.get('pattern') or 'No pattern'
+        rsi      = sig.get('rsi', '—')
+        adx      = sig.get('adx', '—')
+        vol      = sig.get('vol_ratio', 0)
+        shares   = sig.get('shares', '—')
+        ep       = sig.get('est_profit', 0)
+        el       = sig.get('est_loss',   0)
+        gain_pct = round((target - entry) / entry * 100, 1)
+        loss_pct = round((entry  - sl)    / entry * 100, 1)
+
+        d   = sig.get('details', {})
+        r2  = 'PASS' if d.get('R2_Trend',     {}).get('passed') else 'WEAK'
+        r3  = 'PASS' if d.get('R3_Entry',     {}).get('passed') else 'WEAK'
+        r4  = 'PASS' if d.get('R4_Pattern',   {}).get('passed') else 'WEAK'
+        r5  = 'PASS' if d.get('R5_Volume',    {}).get('passed') else 'WEAK'
+        r6  = 'PASS' if d.get('R6_Indicators',{}).get('passed') else 'WEAK'
+
+        bar = "#" * round(score / 12 * 20) + "." * (20 - round(score / 12 * 20))
+
+        print()
+        print("  SIGNAL #" + str(i+1) + " of " + str(len(signals)) + "  |  " + sym)
+        print("  Score  [" + bar + "]  " + str(score) + "/12")
+        print("  Pattern: " + pat)
+        print(line)
+        print("  Entry      :  Rs." + f"{entry:,.2f}")
+        print("  Target     :  Rs." + f"{target:,.2f}" + "  (+" + str(gain_pct) + "%)")
+        print("  Stop Loss  :  Rs." + f"{sl:,.2f}" + "  (-" + str(loss_pct) + "%)")
+        print("  R:R Ratio  :  1:" + str(rr) + "     Hold: 5-7 trading days")
+        print(line)
+        print("  Trend:" + r2 + "  Entry:" + r3 + "  Pattern:" + r4 +
+              "  Volume:" + r5 + "  MACD:" + r6)
+        print("  RSI " + str(rsi) + "  |  ADX " + str(adx) +
+              "  |  Volume " + str(round(vol,1)) + "x avg")
+        print(line)
+        print("  For Rs." + f"{MAX_CAPITAL_PER_TRADE:,}" +
+              "  ->  ~" + str(shares) + " shares")
+        print("  If target hit  :  +Rs." + f"{ep:,}")
+        print("  If SL hit      :  -Rs." + f"{el:,}")
+
+    print()
+    print("  IMPORTANT: Check chart in Zerodha/TradingView before buying")
+    print("  IMPORTANT: Set Stop Loss immediately after placing buy order")
+    print(sep)
+    print()
+
 
     top = signals[:TOP_N_SIGNALS]
     for i, sig in enumerate(top):
