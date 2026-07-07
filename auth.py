@@ -5,7 +5,13 @@ Handles login/logout and session management
 
 import streamlit as st
 import hashlib
-from config import VALID_USERS
+
+# Define valid users here to avoid circular imports
+VALID_USERS = {
+    "admin": "admin123",
+    "trader": "trader456",
+    # Add more users as needed
+}
 
 
 def hash_password(password):
