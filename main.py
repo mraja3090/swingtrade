@@ -222,9 +222,10 @@ def show_status():
             sigs   = latest.get('signals', [])
             print(f"\n  Last scan     : {latest.get('date')}")
             print(f"  Signals sent  : {len(sigs)}")
+            print(f"\n  {'Stock':<16} {'Entry':>10} {'Target':>10} {'Stop Loss':>10} {'Pattern':<20}")
+            print("  " + "─"*75)
             for s in sigs:
-                print(f"    • {s['symbol']:<16} Score:{s['score']}  "
-                      f"₹{s['entry']} → ₹{s['target']}  {s.get('pattern','')}")
+                print(f"  {s['symbol']:<16} ₹{s['entry']:>9.2f} ₹{s['target']:>9.2f} ₹{s['stop_loss']:>9.2f}  {s.get('pattern','')}")
         else:
             print("\n  No scan logs yet. Run: python main.py scan")
 
