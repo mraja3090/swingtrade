@@ -138,7 +138,7 @@ TARGET_ATR_MULT          = 2.5    # Target = entry + 2.5x ATR → R:R = 2.5:1
 # Each rule passed adds to score. Signal sent only if score ≥ threshold.
 # This allows partial passes on less critical rules.
 MIN_SCORE_TO_SIGNAL      = 6      # Must score at least 6 out of 12 points (was 7)
-TOP_N_SIGNALS            = 10     # Display top 10 signals by score daily
+TOP_N_SIGNALS            = 5     # Display top 10 signals by score daily
 
 # --- LIQUIDITY ---
 MIN_AVG_VOLUME           = 200000  # Minimum 2-lakh avg daily volume
