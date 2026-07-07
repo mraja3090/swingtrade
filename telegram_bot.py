@@ -56,18 +56,18 @@ def format_signal(sig: dict, rank: int, total: int) -> str:
 📊 R:R Ratio : 1:{rr}
 
 📋 Grand Checklist:
-  {r2} R2 Trend    ADX:{adx}  EMA aligned
-  {r3} R3 Entry    RSI:{rsi}  Pullback zone
-  {r4} R4 Pattern  {pattern}
-  {r5} R5 Volume   {vol_r:.1f}x avg
-  {r6} R6 MACD+RSI Confirmed
-  ✅  R7 R:R      1:{rr} ≥ 2.0
+   {r2} R2 Trend    ADX:{adx}  EMA aligned
+   {r3} R3 Entry    RSI:{rsi}  Pullback zone
+   {r4} R4 Pattern  {pattern}
+   {r5} R5 Volume   {vol_r:.1f}x avg
+   {r6} R6 MACD+RSI Confirmed
+   ✅  R7 R:R      1:{rr} ≥ 2.0
 Score: {_score_bar(score)} {score}/12
 
 💼 For ₹{MAX_CAPITAL_PER_TRADE:,}:
-  Qty          : ~{shares} shares
-  If target hit: +₹{ep:,}
-  If SL hit    : -₹{el:,}
+   Qty          : ~{shares} shares
+   If target hit: +₹{ep:,}
+   If SL hit    : -₹{el:,}
 
 ⚠️  Place order 9:20 AM tomorrow
 ⚠️  Set SL in Zerodha BEFORE buying
@@ -132,24 +132,27 @@ def send(text: str):
 
 
 def print_console_summary(signals: list, market_reason: str = ""):
-    """Print a clean summary to the terminal — same info as Telegram."""
+    """Print top signals to the terminal — only TOP_N_SIGNALS displayed."""
     width = 70
     now   = datetime.now().strftime('%d %b %Y  %I:%M %p')
     sep   = "═" * width
     line  = "─" * width
+
+    # Filter to only top N signals
+    top = signals[:TOP_N_SIGNALS]
 
     print()
     print(sep)
     print("  SWINGTRADEAI — TODAY'S SIGNALS  |  " + now)
     print(sep)
 
-    if not signals:
+    if not top:
         reason = market_reason or "No stocks passed all 7 rules today."
         print("  NO SIGNALS — " + reason)
         print(sep)
         return
 
-    for i, sig in enumerate(signals):
+    for i, sig in enumerate(top):
         sym      = sig['symbol']
         entry    = sig['entry']
         target   = sig['target']
@@ -176,7 +179,7 @@ def print_console_summary(signals: list, market_reason: str = ""):
         bar = "#" * round(score / 12 * 20) + "." * (20 - round(score / 12 * 20))
 
         print()
-        print("  SIGNAL #" + str(i+1) + " of " + str(len(signals)) + "  |  " + sym)
+        print("  SIGNAL #" + str(i+1) + " of " + str(len(top)) + "  |  " + sym)
         print("  Score  [" + bar + "]  " + str(score) + "/12")
         print("  Pattern: " + pat)
         print(line)
@@ -201,8 +204,7 @@ def print_console_summary(signals: list, market_reason: str = ""):
     print(sep)
     print()
 
-
-    top = signals[:TOP_N_SIGNALS]
+    # Send to Telegram
     for i, sig in enumerate(top):
         send(format_signal(sig, i + 1, len(top)))
 
@@ -221,6 +223,7 @@ def print_console_summary(signals: list, market_reason: str = ""):
         indent=2, default=str
     )
     print(f"  [LOG] → logs/signals_{date}.json")
+    print(f"  [TOTAL] {len(signals)} signals passed filters. Top {len(top)} displayed & sent.")
 
 
 # Compatibility wrapper expected by main.py
