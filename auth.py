@@ -107,15 +107,6 @@ def login_page():
                 st.rerun()
             else:
                 st.error("❌ Invalid username or password. Please try again.")
-        
-        st.markdown("---")
-        st.markdown("""
-            <div style="text-align: center; color: #64748B; font-size: 0.9rem; margin-top: 2rem;">
-                <p><strong>Demo Credentials:</strong></p>
-                <p>👤 admin / 🔑 admin123</p>
-                <p>👤 trader / 🔑 trader456</p>
-            </div>
-        """, unsafe_allow_html=True)
 
 
 def logout():
