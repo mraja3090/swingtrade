@@ -26,7 +26,7 @@ from config import (
     PULLBACK_EMA_TOLERANCE, RSI_MIN_ENTRY, RSI_MAX_ENTRY, MAX_FROM_52W_HIGH,
     VOLUME_SURGE_MIN, STOCH_K_MAX, MIN_RRR,
     SL_ATR_MULT, TARGET_ATR_MULT, MIN_SCORE_TO_SIGNAL, MIN_AVG_VOLUME,
-    MAX_CAPITAL_PER_TRADE, R2_MIN_SUBRULES, R3_MIN_SUBRULES
+    MAX_CAPITAL_PER_TRADE, R2_MIN_SUBRULES, R3_MIN_SUBRULES, TOP_N_SIGNALS
 )
 from indicators import add_all_indicators, ema
 from patterns import detect_pattern, pattern_strength
@@ -275,6 +275,7 @@ def scan_all(all_data: dict, nifty_healthy: bool) -> list:
     """
     Run Grand Checklist on all stocks.
     Returns top signals sorted by score (highest first).
+    Only prints top TOP_N_SIGNALS to console.
     """
     if not nifty_healthy:
         print("[SCAN] Market in downtrend. No signals today. Capital protected.")
@@ -294,13 +295,14 @@ def scan_all(all_data: dict, nifty_healthy: bool) -> list:
 
     signals.sort(key=lambda x: x['score'], reverse=True)
 
+    # Print only TOP_N_SIGNALS to console
     print(f"\n{'Rank':<5}{'Stock':<16}{'Score':>6}{'Pattern':<22}{'RSI':>5}{'ADX':>5}{'Vol':>6}{'R:R':>5}")
     print("─" * 70)
-    for i, s in enumerate(signals[:10], 1):
+    for i, s in enumerate(signals[:TOP_N_SIGNALS], 1):
         pat = s['pattern'][:20] if s['pattern'] else 'None'
         print(f"{i:<5}{s['symbol']:<16}{s['score']:>6}  {pat:<20}{s['rsi']:>5.1f}{s['adx']:>5.1f}{s['vol_ratio']:>5.1f}x{s['rr_ratio']:>5.1f}")
 
-    print(f"\n[SCAN] {len(signals)} stocks passed all rules.")
+    print(f"\n[SCAN] {len(signals)} stocks passed all rules. Top {TOP_N_SIGNALS} displayed.")
     return signals
 
 
