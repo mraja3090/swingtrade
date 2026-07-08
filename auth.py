@@ -8,7 +8,7 @@ import hashlib
 
 # Define valid users here to avoid circular imports
 VALID_USERS = {
-    "admin": "admin123",
+    "admin": "India@2026",
     "trader": "trader456",
     # Add more users as needed
 }
