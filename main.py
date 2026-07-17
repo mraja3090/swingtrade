@@ -17,7 +17,8 @@ warnings.filterwarnings('ignore')
 from config import SCAN_TIME, DATA_PATH, TOP_N_SIGNALS
 from data_loader import download_all, save, load, refresh
 from indicators import add_all_indicators
-from scanner import scan_all, check_market_health, diagnose_stock
+from patterns import detect_pattern
+from scanner import scan_all, check_market_health, diagnose_stock, evaluate_signal_at
 from telegram_bot import send_signals, send
 
 
@@ -103,57 +104,61 @@ def start_scheduler():
 # BACKTEST — Last 60 days
 # ─────────────────────────────────────────────────────────
 
-def backtest():
+def backtest(lookback_days: int = 60):
     """
-    Run Grand Checklist on the last 60 trading days.
-    Check each signal: did price actually hit target before SL within 7 days?
-    This is the only honest backtest — simulates exactly what would happen.
+    Replays the ACTUAL Grand Checklist (R2-R7, via scanner.evaluate_signal_at)
+    on each of the last `lookback_days` trading days per stock -- not every
+    day indiscriminately. A "situation" only counts if the real rule funnel
+    would have fired a signal that day. Then checks whether price hit target
+    before stop-loss within the next 7 days.
     """
-    print("\n[BACKTEST] SwingTradeAI Rules — 60 Day Backtest")
+    print(f"\n[BACKTEST] SwingTradeAI Rules -- {lookback_days} Day Backtest (Grand Checklist)")
     print("="*55)
 
     data = load()
     stock_keys = [k for k in data if not k.startswith('__')]
-    nifty_df   = data.get('__NIFTY__')
 
     wins = losses = no_exit = total = 0
     trade_log = []
+    signal_days_found = 0
 
     for sym in stock_keys:
         df = data[sym].copy()
         if len(df) < 120:
             continue
 
-        # Test on last 60 days — use earlier data as lookback
         try:
             df_full = add_all_indicators(df)
-        except:
+        except Exception:
             continue
 
-        test_days = df_full.iloc[-60:]
+        if len(df_full) < 30:
+            continue
 
-        for i in range(len(test_days) - 7):
-            row = test_days.iloc[i]
-            # Simplified: check if today had high RSI pull + MACD + volume
-            # (full pattern check needs sliding window — approximate here)
-            entry  = row['Close']
-            atr_v  = row['atr']
-            if atr_v <= 0:
-                continue
-            target = round(entry + 2.5 * atr_v, 2)
-            sl     = round(entry - 1.0 * atr_v, 2)
+        patterns = detect_pattern(df_full)
 
-            # Check next 7 days
-            fwd = test_days.iloc[i+1:i+8]
+        start_i = max(1, len(df_full) - lookback_days)
+        end_i   = len(df_full) - 7   # need 7 forward days to grade the trade
+
+        for i in range(start_i, end_i):
+            sig = evaluate_signal_at(sym, df_full, patterns, i)
+            if sig is None:
+                continue   # rules did not fire on this day -- not a trade
+
+            signal_days_found += 1
+            entry  = sig['entry']
+            target = sig['target']
+            sl     = sig['stop_loss']
+
+            fwd = df_full.iloc[i+1:i+8]
             hit_target = (fwd['High'] >= target).any()
             hit_sl     = (fwd['Low']  <= sl).any()
 
-            # Which happened first?
-            tgt_day = fwd[fwd['High'] >= target].index[0] if hit_target else None
-            sl_day  = fwd[fwd['Low']  <= sl].index[0]    if hit_sl     else None
+            tgt_day = fwd.index[fwd['High'] >= target][0] if hit_target else None
+            sl_day  = fwd.index[fwd['Low']  <= sl][0]     if hit_sl     else None
 
             if hit_target and hit_sl:
-                if tgt_day < sl_day:
+                if tgt_day <= sl_day:
                     wins += 1
                 else:
                     losses += 1
@@ -165,36 +170,38 @@ def backtest():
             else:
                 no_exit += 1; total += 1
 
+            trade_log.append({'symbol': sym, 'date': str(df_full.index[i].date()),
+                               'entry': entry, 'target': target, 'sl': sl})
+
     if total == 0:
-        print("  No test data.")
+        print("  No signals fired in this window -- rules may be too strict,")
+        print("  or there is not enough historical data. Try `python main.py diagnose`.")
         return
 
     wr     = wins / (wins + losses) * 100 if (wins + losses) > 0 else 0
-    rr     = 2.5   # our R:R
+    rr     = 2.5   # TARGET_ATR_MULT / SL_ATR_MULT
     be_wr  = 100 / (1 + rr)
 
-    print(f"\n  Stocks tested     : {len(stock_keys)}")
-    print(f"  Situations tested : {total}")
-    print(f"  Wins              : {wins}  ({wr:.1f}%)")
-    print(f"  Losses            : {losses}  ({100*losses/(wins+losses):.1f}%)" if (wins+losses)>0 else "")
-    print(f"  No exit in 7d     : {no_exit}")
-    print(f"\n  R:R Ratio         : 1:{rr}")
-    print(f"  Breakeven WR      : {be_wr:.1f}%  (with 1:{rr} R:R)")
-    print(f"  Your WR           : {wr:.1f}%  ({'✅ Profitable' if wr > be_wr else '❌ Below breakeven'})")
+    print(f"\n  Stocks tested        : {len(stock_keys)}")
+    print(f"  Signal days found    : {signal_days_found}  (days the Grand Checklist actually fired)")
+    print(f"  Situations graded    : {total}")
+    print(f"  Wins                 : {wins}  ({wr:.1f}%)")
+    print(f"  Losses               : {losses}  ({100*losses/(wins+losses):.1f}%)" if (wins+losses)>0 else "")
+    print(f"  No exit in 7d        : {no_exit}")
+    print(f"\n  R:R Ratio            : 1:{rr}")
+    print(f"  Breakeven WR         : {be_wr:.1f}%  (with 1:{rr} R:R)")
+    print(f"  Your WR              : {wr:.1f}%  ({'Profitable' if wr > be_wr else 'Below breakeven'})")
 
     if wr >= 60:
-        verdict = "✅ STRONG — system working well"
+        verdict = "STRONG -- system working well"
     elif wr >= 50:
-        verdict = "✅ GOOD — above breakeven with 2.5:1 R:R"
+        verdict = "GOOD -- above breakeven with 2.5:1 R:R"
     elif wr >= 40:
-        verdict = "⚠️  MARGINAL — review config thresholds"
+        verdict = "MARGINAL -- review config thresholds"
     else:
-        verdict = "❌ WEAK — check data and rules"
+        verdict = "WEAK -- check data and rules"
 
     print(f"\n  Verdict: {verdict}")
-    print("\n  NOTE: This tests ATR-based targets on ALL days.")
-    print("  Real signals are MORE SELECTIVE (Grand Checklist filters).")
-    print("  Actual win rate with all 7 rules will be HIGHER than this.")
     print("="*55 + "\n")
 
 
