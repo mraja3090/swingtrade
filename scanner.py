@@ -87,28 +87,24 @@ def check_market_health(nifty_df: pd.DataFrame) -> tuple[bool, str]:
 # CORE SCANNER — PER STOCK
 # ─────────────────────────────────────────────────────────
 
-def scan_stock(symbol: str, df: pd.DataFrame) -> dict | None:
+def evaluate_signal_at(symbol: str, df: pd.DataFrame, patterns: pd.Series, i: int) -> dict | None:
     """
-    Run all 7 rules on one stock.
-    Returns signal dict if score >= MIN_SCORE, else None.
+    Run all 7 rules AS OF ROW i of an already-indicator'd, already-pattern'd
+    DataFrame. This is the single source of truth for "would a signal have
+    fired on this day" — used by BOTH the live scanner (i = last row) and
+    the backtest (i = each historical row). Keeping one shared function
+    means the backtest can never silently drift out of sync with the rules
+    that actually generate live signals.
+
+    df must already have indicators added (add_all_indicators) and
+    patterns must already be detect_pattern(df) — both are causal/vectorised,
+    so slicing at row i uses only data available up to and including day i.
     """
-    if len(df) < 60:
+    if i < 1 or i >= len(df):
         return None
 
-    # Liquidity filter
-    if df['Volume'].tail(20).mean() < MIN_AVG_VOLUME:
-        return None
-
-    try:
-        df = add_all_indicators(df)
-    except Exception:
-        return None
-
-    if len(df) < 5:
-        return None
-
-    latest   = df.iloc[-1]
-    prev     = df.iloc[-2]
+    latest   = df.iloc[i]
+    prev     = df.iloc[i - 1]
     score    = 0
     details  = {}
 
@@ -172,13 +168,12 @@ def scan_stock(symbol: str, df: pd.DataFrame) -> dict | None:
 
     # ── RULE 4: CANDLESTICK PATTERN ──────────────────────
     # Zerodha Varsity: Primary signal for trade
-    patterns      = detect_pattern(df)
-    pattern_today = patterns.iloc[-1]
+    pattern_today = patterns.iloc[i]
     p_strength    = pattern_strength(pattern_today)
 
     if p_strength == 0:
         # No pattern today — check if yesterday had a strong one (next-day entry)
-        pattern_yest = patterns.iloc[-2]
+        pattern_yest = patterns.iloc[i - 1]
         p_strength   = max(0, pattern_strength(pattern_yest) - 1)
         pattern_today = pattern_yest + " (prev day)" if p_strength > 0 else ''
 
@@ -265,6 +260,32 @@ def scan_stock(symbol: str, df: pd.DataFrame) -> dict | None:
         'est_loss'   : est_loss,
         'details'    : details,
     }
+
+
+def scan_stock(symbol: str, df: pd.DataFrame) -> dict | None:
+    """
+    Run all 7 rules on one stock's LATEST day.
+    Returns signal dict if score >= MIN_SCORE, else None.
+    Thin wrapper around evaluate_signal_at() — kept so scan_all() and
+    diagnose() don't need to change.
+    """
+    if len(df) < 60:
+        return None
+
+    # Liquidity filter
+    if df['Volume'].tail(20).mean() < MIN_AVG_VOLUME:
+        return None
+
+    try:
+        df = add_all_indicators(df)
+    except Exception:
+        return None
+
+    if len(df) < 5:
+        return None
+
+    patterns = detect_pattern(df)
+    return evaluate_signal_at(symbol, df, patterns, len(df) - 1)
 
 
 # ─────────────────────────────────────────────────────────
